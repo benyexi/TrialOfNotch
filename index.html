@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>城市气候对比 - 近30年温湿度与降雨分析</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            min-height: 100vh;
+            color: #e0e0e0;
+        }
+
+        .header {
+            text-align: center;
+            padding: 40px 20px 20px;
+            background: linear-gradient(180deg, rgba(99,102,241,0.15) 0%, transparent 100%);
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            background: linear-gradient(90deg, #818cf8, #c084fc, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #94a3b8;
+            font-size: 1rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* City Selection */
+        .city-selection {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        .city-card {
+            background: rgba(255,255,255,0.06);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 20px;
+            width: 320px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .city-card:hover { border-color: rgba(129,140,248,0.4); }
+
+        .city-card .label {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .city-card .label .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .city-card:nth-child(1) .dot { background: #818cf8; }
+        .city-card:nth-child(2) .dot { background: #34d399; }
+        .city-card:nth-child(3) .dot { background: #fb923c; }
+
+        .search-wrapper {
+            position: relative;
+        }
+
+        .search-wrapper input {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .search-wrapper input:focus {
+            border-color: #818cf8;
+            box-shadow: 0 0 0 3px rgba(129,140,248,0.15);
+        }
+
+        .search-wrapper input::placeholder { color: #64748b; }
+
+        .dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #1e1b4b;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 10px;
+            margin-top: 4px;
+            max-height: 220px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+
+        .dropdown.show { display: block; }
+
+        .dropdown-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 0.95rem;
+        }
+
+        .dropdown-item:hover { background: rgba(129,140,248,0.2); }
+
+        .dropdown-item .city-name { color: #e2e8f0; }
+        .dropdown-item .city-info { color: #64748b; font-size: 0.8rem; margin-left: 6px; }
+
+        .selected-info {
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: #94a3b8;
+            min-height: 20px;
+        }
+
+        /* Controls */
+        .controls {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .btn-compare {
+            padding: 14px 48px;
+            font-size: 1.05rem;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #818cf8, #a78bfa);
+            color: #fff;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 4px 20px rgba(129,140,248,0.3);
+        }
+
+        .btn-compare:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 30px rgba(129,140,248,0.5);
+        }
+
+        .btn-compare:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 60px;
+            display: none;
+        }
+
+        .loading.show { display: block; }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(129,140,248,0.2);
+            border-top-color: #818cf8;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Charts */
+        .charts-section {
+            display: none;
+        }
+
+        .charts-section.show { display: block; }
+
+        .chart-container {
+            background: rgba(255,255,255,0.04);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .chart-container h3 {
+            font-size: 1.1rem;
+            color: #c4b5fd;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .chart-container canvas {
+            max-height: 360px;
+        }
+
+        /* Year range selector */
+        .year-range {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .year-range label { color: #94a3b8; font-size: 0.9rem; }
+
+        .year-range select {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            font-size: 0.9rem;
+            outline: none;
+        }
+
+        .year-range select:focus { border-color: #818cf8; }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 30px;
+            color: #475569;
+            font-size: 0.85rem;
+        }
+
+        /* Error */
+        .error-msg {
+            text-align: center;
+            color: #f87171;
+            background: rgba(248,113,113,0.1);
+            border: 1px solid rgba(248,113,113,0.2);
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .error-msg.show { display: block; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1.5rem; }
+            .city-card { width: 100%; }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(129,140,248,0.3); border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>城市气候对比分析</h1>
+        <p>选择三个城市，对比近30年的年均温度、湿度与降雨量变化趋势</p>
+    </div>
+
+    <div class="container">
+        <div class="city-selection">
+            <div class="city-card" id="card-0">
+                <div class="label"><span class="dot"></span> 城市 A</div>
+                <div class="search-wrapper">
+                    <input type="text" placeholder="搜索城市名称..." data-index="0" autocomplete="off">
+                    <div class="dropdown" id="dropdown-0"></div>
+                </div>
+                <div class="selected-info" id="info-0"></div>
+            </div>
+            <div class="city-card" id="card-1">
+                <div class="label"><span class="dot"></span> 城市 B</div>
+                <div class="search-wrapper">
+                    <input type="text" placeholder="搜索城市名称..." data-index="1" autocomplete="off">
+                    <div class="dropdown" id="dropdown-1"></div>
+                </div>
+                <div class="selected-info" id="info-1"></div>
+            </div>
+            <div class="city-card" id="card-2">
+                <div class="label"><span class="dot"></span> 城市 C</div>
+                <div class="search-wrapper">
+                    <input type="text" placeholder="搜索城市名称..." data-index="2" autocomplete="off">
+                    <div class="dropdown" id="dropdown-2"></div>
+                </div>
+                <div class="selected-info" id="info-2"></div>
+            </div>
+        </div>
+
+        <div class="year-range">
+            <label>年份范围：</label>
+            <select id="yearStart"></select>
+            <span style="color:#64748b">至</span>
+            <select id="yearEnd"></select>
+        </div>
+
+        <div class="controls">
+            <button class="btn-compare" id="btnCompare" disabled>开始对比分析</button>
+        </div>
+
+        <div class="error-msg" id="errorMsg"></div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>正在获取历史气候数据，请稍候...</p>
+        </div>
+
+        <div class="charts-section" id="chartsSection">
+            <div class="chart-container">
+                <h3>🌡️ 年均温度对比 (°C)</h3>
+                <canvas id="tempChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>💧 年均相对湿度对比 (%)</h3>
+                <canvas id="humidityChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>🌧️ 年总降雨量对比 (mm)</h3>
+                <canvas id="rainChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        数据来源：Open-Meteo Historical Weather API | 本工具仅供参考
+    </div>
+
+    <script>
+    (function() {
+        // State
+        const selectedCities = [null, null, null];
+        const colors = [
+            { line: '#818cf8', bg: 'rgba(129,140,248,0.1)' },
+            { line: '#34d399', bg: 'rgba(52,211,153,0.1)' },
+            { line: '#fb923c', bg: 'rgba(251,146,60,0.1)' },
+        ];
+        let charts = {};
+        let debounceTimers = {};
+
+        // Year selectors
+        const currentYear = new Date().getFullYear();
+        const defaultStart = currentYear - 30;
+        const yearStartEl = document.getElementById('yearStart');
+        const yearEndEl = document.getElementById('yearEnd');
+
+        for (let y = 1950; y <= currentYear - 1; y++) {
+            const opt1 = new Option(y, y, y === defaultStart, y === defaultStart);
+            const opt2 = new Option(y, y, y === currentYear - 1, y === currentYear - 1);
+            yearStartEl.appendChild(opt1);
+            yearEndEl.appendChild(opt2);
+        }
+
+        // City search via Open-Meteo Geocoding API
+        async function searchCities(query) {
+            const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=8&language=zh&format=json`;
+            const resp = await fetch(url);
+            const data = await resp.json();
+            return data.results || [];
+        }
+
+        // Setup search inputs
+        document.querySelectorAll('.search-wrapper input').forEach(input => {
+            const idx = parseInt(input.dataset.index);
+
+            input.addEventListener('input', () => {
+                const q = input.value.trim();
+                clearTimeout(debounceTimers[idx]);
+                if (q.length < 1) {
+                    document.getElementById(`dropdown-${idx}`).classList.remove('show');
+                    return;
+                }
+                debounceTimers[idx] = setTimeout(async () => {
+                    try {
+                        const results = await searchCities(q);
+                        renderDropdown(idx, results);
+                    } catch(e) {
+                        console.error(e);
+                    }
+                }, 300);
+            });
+
+            input.addEventListener('focus', () => {
+                if (input.value.trim().length >= 1) {
+                    document.getElementById(`dropdown-${idx}`).classList.add('show');
+                }
+            });
+        });
+
+        // Close dropdown on outside click
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-wrapper')) {
+                document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('show'));
+            }
+        });
+
+        function renderDropdown(idx, results) {
+            const dd = document.getElementById(`dropdown-${idx}`);
+            dd.innerHTML = '';
+            if (results.length === 0) {
+                dd.innerHTML = '<div class="dropdown-item"><span class="city-info">未找到匹配城市</span></div>';
+                dd.classList.add('show');
+                return;
+            }
+            results.forEach(city => {
+                const item = document.createElement('div');
+                item.className = 'dropdown-item';
+                const region = [city.admin1, city.country].filter(Boolean).join(', ');
+                item.innerHTML = `<span class="city-name">${city.name}</span><span class="city-info">${region} (${city.population ? (city.population/10000).toFixed(0)+'万人' : ''})</span>`;
+                item.addEventListener('click', () => selectCity(idx, city));
+                dd.appendChild(item);
+            });
+            dd.classList.add('show');
+        }
+
+        function selectCity(idx, city) {
+            selectedCities[idx] = city;
+            const input = document.querySelector(`.search-wrapper input[data-index="${idx}"]`);
+            input.value = city.name;
+            document.getElementById(`dropdown-${idx}`).classList.remove('show');
+            const region = [city.admin1, city.country].filter(Boolean).join(', ');
+            document.getElementById(`info-${idx}`).textContent = `${region} | 经度: ${city.longitude.toFixed(2)} 纬度: ${city.latitude.toFixed(2)}`;
+            updateButton();
+        }
+
+        function updateButton() {
+            const btn = document.getElementById('btnCompare');
+            btn.disabled = !selectedCities.every(c => c !== null);
+        }
+
+        // Fetch historical weather data
+        async function fetchWeatherData(city, startYear, endYear) {
+            const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${city.latitude}&longitude=${city.longitude}&start_date=${startYear}-01-01&end_date=${endYear}-12-31&daily=temperature_2m_mean,relative_humidity_2m_mean,precipitation_sum&timezone=auto`;
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+            const data = await resp.json();
+            return data;
+        }
+
+        // Aggregate daily data to yearly
+        function aggregateYearly(data, startYear, endYear) {
+            const daily = data.daily;
+            const years = {};
+
+            for (let y = startYear; y <= endYear; y++) {
+                years[y] = { tempSum: 0, tempCount: 0, humSum: 0, humCount: 0, rainSum: 0 };
+            }
+
+            for (let i = 0; i < daily.time.length; i++) {
+                const year = parseInt(daily.time[i].substring(0, 4));
+                if (!years[year]) continue;
+
+                if (daily.temperature_2m_mean[i] !== null) {
+                    years[year].tempSum += daily.temperature_2m_mean[i];
+                    years[year].tempCount++;
+                }
+                if (daily.relative_humidity_2m_mean[i] !== null) {
+                    years[year].humSum += daily.relative_humidity_2m_mean[i];
+                    years[year].humCount++;
+                }
+                if (daily.precipitation_sum[i] !== null) {
+                    years[year].rainSum += daily.precipitation_sum[i];
+                }
+            }
+
+            const labels = [];
+            const temp = [];
+            const humidity = [];
+            const rain = [];
+
+            for (let y = startYear; y <= endYear; y++) {
+                const d = years[y];
+                labels.push(y);
+                temp.push(d.tempCount > 0 ? +(d.tempSum / d.tempCount).toFixed(1) : null);
+                humidity.push(d.humCount > 0 ? +(d.humSum / d.humCount).toFixed(1) : null);
+                rain.push(+d.rainSum.toFixed(1));
+            }
+
+            return { labels, temp, humidity, rain };
+        }
+
+        // Draw charts
+        function drawCharts(allData, cityNames) {
+            const section = document.getElementById('chartsSection');
+            section.classList.add('show');
+
+            const labels = allData[0].labels;
+
+            const chartConfig = [
+                { id: 'tempChart', key: 'temp', label: '年均温度 (°C)', unit: '°C' },
+                { id: 'humidityChart', key: 'humidity', label: '年均湿度 (%)', unit: '%' },
+                { id: 'rainChart', key: 'rain', label: '年降雨量 (mm)', unit: 'mm' },
+            ];
+
+            chartConfig.forEach(cfg => {
+                if (charts[cfg.id]) charts[cfg.id].destroy();
+
+                const datasets = cityNames.map((name, i) => ({
+                    label: name,
+                    data: allData[i][cfg.key],
+                    borderColor: colors[i].line,
+                    backgroundColor: colors[i].bg,
+                    borderWidth: 2,
+                    pointRadius: 2.5,
+                    pointHoverRadius: 5,
+                    tension: 0.3,
+                    fill: true,
+                    spanGaps: true,
+                }));
+
+                const ctx = document.getElementById(cfg.id).getContext('2d');
+                charts[cfg.id] = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels, datasets },
+                    options: {
+                        responsive: true,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: {
+                                labels: { color: '#cbd5e1', font: { size: 13 }, usePointStyle: true, pointStyle: 'circle' }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(30,27,75,0.95)',
+                                borderColor: 'rgba(129,140,248,0.3)',
+                                borderWidth: 1,
+                                titleColor: '#e2e8f0',
+                                bodyColor: '#cbd5e1',
+                                callbacks: {
+                                    label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y} ${cfg.unit}`
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                ticks: { color: '#64748b', maxRotation: 45 },
+                                grid: { color: 'rgba(255,255,255,0.04)' }
+                            },
+                            y: {
+                                ticks: { color: '#64748b' },
+                                grid: { color: 'rgba(255,255,255,0.06)' }
+                            }
+                        }
+                    }
+                });
+            });
+        }
+
+        // Main compare action
+        document.getElementById('btnCompare').addEventListener('click', async () => {
+            const startYear = parseInt(yearStartEl.value);
+            const endYear = parseInt(yearEndEl.value);
+
+            if (startYear >= endYear) {
+                showError('起始年份必须小于结束年份');
+                return;
+            }
+
+            hideError();
+            document.getElementById('chartsSection').classList.remove('show');
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('btnCompare').disabled = true;
+
+            try {
+                const promises = selectedCities.map(city => fetchWeatherData(city, startYear, endYear));
+                const rawDataArr = await Promise.all(promises);
+                const allData = rawDataArr.map(raw => aggregateYearly(raw, startYear, endYear));
+                const cityNames = selectedCities.map(c => c.name);
+
+                document.getElementById('loading').classList.remove('show');
+                drawCharts(allData, cityNames);
+            } catch (err) {
+                console.error(err);
+                document.getElementById('loading').classList.remove('show');
+                showError('获取数据失败，请检查网络连接或稍后重试。错误: ' + err.message);
+            } finally {
+                updateButton();
+            }
+        });
+
+        function showError(msg) {
+            const el = document.getElementById('errorMsg');
+            el.textContent = msg;
+            el.classList.add('show');
+        }
+
+        function hideError() {
+            document.getElementById('errorMsg').classList.remove('show');
+        }
+    })();
+    </script>
+</body>
+</html>
