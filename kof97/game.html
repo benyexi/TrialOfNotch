@@ -2,14 +2,15 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>格斗之王 · Fist of Fighters</title>
 <style>
-  html,body{margin:0;height:100%;background:#0a0a10;overflow:hidden;
+  html,body{margin:0;height:100%;width:100%;background:#0a0a10;overflow:hidden;
+    touch-action:none;-webkit-user-select:none;user-select:none;
     font-family:"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;}
   #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
-  canvas{background:#000;max-width:100%;max-height:100%;
-    image-rendering:pixelated;box-shadow:0 0 60px rgba(0,0,0,.8);}
+  canvas{background:#000;max-width:100%;max-height:100%;width:auto;height:auto;
+    touch-action:none;image-rendering:pixelated;box-shadow:0 0 60px rgba(0,0,0,.8);}
 </style>
 </head>
 <body>
@@ -26,6 +27,41 @@ addEventListener('keydown',e=>{keys[e.code]=true;
   if(state==='matchover'&&e.code==='Enter')state='title';
 });
 addEventListener('keyup',e=>{keys[e.code]=false;});
+
+// ---------- touch (mobile) ----------
+const isTouch=('ontouchstart'in window)||navigator.maxTouchPoints>0;
+const touch={left:false,right:false,up:false,down:false,lp:false,hp:false,lk:false,hk:false,sp:false};
+// on-screen buttons defined in canvas coordinates
+const TB={
+  left:{x:30,y:H-150,w:90,h:90,t:'←'},
+  right:{x:160,y:H-150,w:90,h:90,t:'→'},
+  up:{x:95,y:H-260,w:90,h:90,t:'↑'},
+  down:{x:95,y:H-50,w:90,h:90,t:'↓'},
+  lp:{x:W-260,y:H-130,w:74,h:74,t:'拳',k:'lp'},
+  hp:{x:W-178,y:H-150,w:74,h:74,t:'重拳',k:'hp'},
+  lk:{x:W-260,y:H-210,w:74,h:74,t:'脚',k:'lk'},
+  hk:{x:W-178,y:H-230,w:74,h:74,t:'重脚',k:'hk'},
+  sp:{x:W-96,y:H-160,w:80,h:80,t:'必杀',k:'sp'},
+};
+function canvasPos(t){const r=cv.getBoundingClientRect();
+  return{x:(t.clientX-r.left)*(W/r.width),y:(t.clientY-r.top)*(H/r.height)};}
+function inBtn(p,b){return p.x>=b.x&&p.x<=b.x+b.w&&p.y>=b.y&&p.y<=b.y+b.h;}
+function applyTouches(touches){
+  for(const k in touch)touch[k]=false;
+  for(const t of touches){const p=canvasPos(t);
+    for(const name in TB){if(inBtn(p,TB[name]))touch[name]=true;}}
+}
+function handleTouch(e){
+  e.preventDefault();
+  // tap to start / restart on menu screens
+  if(state==='title'){startMatch();return;}
+  if(state==='matchover'){state='title';return;}
+  applyTouches(e.touches);
+}
+cv.addEventListener('touchstart',handleTouch,{passive:false});
+cv.addEventListener('touchmove',handleTouch,{passive:false});
+cv.addEventListener('touchend',handleTouch,{passive:false});
+cv.addEventListener('touchcancel',handleTouch,{passive:false});
 
 // ---------- fighter ----------
 function Fighter(x,color,name,isP2){
@@ -96,8 +132,10 @@ function readInput(f,foe){
     cmd={left:keys['Numpad4'],right:keys['Numpad6'],jump:keys['Numpad8'],crouch:keys['Numpad2'],
       lp:keys['Numpad7'],hp:keys['Numpad9'],lk:keys['Numpad1'],hk:keys['Numpad3'],sp:keys['Numpad5']};
   } else {
-    cmd={left:keys['ArrowLeft'],right:keys['ArrowRight'],jump:keys['ArrowUp'],crouch:keys['ArrowDown'],
-      lp:keys['KeyJ'],hp:keys['KeyK'],lk:keys['KeyU'],hk:keys['KeyI'],sp:keys['Space']};
+    cmd={left:keys['ArrowLeft']||touch.left,right:keys['ArrowRight']||touch.right,
+      jump:keys['ArrowUp']||touch.up,crouch:keys['ArrowDown']||touch.down,
+      lp:keys['KeyJ']||touch.lp,hp:keys['KeyK']||touch.hp,
+      lk:keys['KeyU']||touch.lk,hk:keys['KeyI']||touch.hk,sp:keys['Space']||touch.sp};
   }
   return cmd;
 }
@@ -353,6 +391,22 @@ function smeter(x,y,w,v,right){
   ctx.fillText('必杀槽 SP',right?x+w:x,y-3);
 }
 
+function drawTouchControls(){
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  for(const name in TB){const b=TB[name];const on=touch[name];
+    const r=12;
+    ctx.fillStyle=on?'rgba(255,210,60,.55)':'rgba(255,255,255,.16)';
+    ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(b.x+r,b.y);ctx.arcTo(b.x+b.w,b.y,b.x+b.w,b.y+b.h,r);
+    ctx.arcTo(b.x+b.w,b.y+b.h,b.x,b.y+b.h,r);ctx.arcTo(b.x,b.y+b.h,b.x,b.y,r);
+    ctx.arcTo(b.x,b.y,b.x+b.w,b.y,r);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font='bold '+(b.t.length>1?20:30)+'px sans-serif';
+    ctx.fillText(b.t,b.x+b.w/2,b.y+b.h/2+1);
+  }
+  ctx.textBaseline='alphabetic';
+}
+
 // ---------- game flow ----------
 let state='title',tick=0,roundTime=60,roundTimer=0,aiOn=true,announce='',announceT=0;
 function startMatch(){
@@ -416,10 +470,15 @@ function render(){
     ctx.fillText('FIST OF FIGHTERS',W/2,250);
     ctx.font='22px sans-serif';
     ctx.fillStyle=tick%60<40?'#fff':'#888';
-    ctx.fillText('按 Enter 开始游戏',W/2,340);
+    ctx.fillText(isTouch?'点击屏幕开始游戏':'按 Enter 开始游戏',W/2,340);
     ctx.fillStyle='#bbb';ctx.font='16px sans-serif';
-    ctx.fillText('移动: ← → ↑(跳) ↓(蹲/防御:后退方向)',W/2,400);
-    ctx.fillText('J 轻拳   K 重拳   U 轻脚   I 重脚   空格 必杀(满50槽)',W/2,428);
+    if(isTouch){
+      ctx.fillText('使用屏幕左侧方向键 + 右侧拳脚按钮',W/2,400);
+      ctx.fillText('防御: 按住「后退」方向   必杀: 必杀键(满50槽)',W/2,428);
+    }else{
+      ctx.fillText('移动: ← → ↑(跳) ↓(蹲/防御:后退方向)',W/2,400);
+      ctx.fillText('J 轻拳   K 重拳   U 轻脚   I 重脚   空格 必杀(满50槽)',W/2,428);
+    }
     ctx.fillText('单人对战电脑 AI · 三局两胜',W/2,460);
     return;
   }
@@ -428,6 +487,7 @@ function render(){
   for(const f of [P1,P2]){ctx.beginPath();ctx.ellipse(f.x,GROUND+6,30,8,0,0,7);ctx.fill();}
   drawFighter(P1);drawFighter(P2);
   drawProjectiles();drawSparks();drawHUD();
+  if(isTouch&&(state==='fight'||state==='roundstart'||state==='roundend'))drawTouchControls();
   if(announceT>0){
     ctx.textAlign='center';ctx.font='bold 60px sans-serif';
     ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillText(announce,W/2+3,H/2+3);
