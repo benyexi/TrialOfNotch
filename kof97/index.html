@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>拳皇97 网页版 · KOF '97 Web Player</title>
+<style>
+  :root {
+    --bg: #0d0d12;
+    --panel: #16161f;
+    --accent: #e8b923;
+    --accent2: #c0392b;
+    --text: #e8e8ee;
+    --muted: #9a9aa6;
+    --border: #2a2a36;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: radial-gradient(circle at 50% 0%, #1c1c28 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    min-height: 100%;
+  }
+  header {
+    text-align: center;
+    padding: 22px 16px 8px;
+  }
+  header h1 {
+    margin: 0;
+    font-size: clamp(22px, 5vw, 38px);
+    letter-spacing: 2px;
+    background: linear-gradient(90deg, var(--accent), #ff5e3a, var(--accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 2px 12px rgba(232,185,35,.15);
+  }
+  header p { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 0 16px 60px; }
+
+  .stage {
+    margin-top: 18px;
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    aspect-ratio: 4 / 3;
+    position: relative;
+    box-shadow: 0 10px 40px rgba(0,0,0,.6);
+  }
+  #game { width: 100%; height: 100%; }
+
+  .loader {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; text-align: center; padding: 24px;
+  }
+  .loader h2 { margin: 0; font-size: 20px; color: var(--accent); }
+  .loader p { margin: 0; color: var(--muted); max-width: 520px; line-height: 1.6; font-size: 14px; }
+
+  .pickbtn {
+    display: inline-block;
+    background: linear-gradient(180deg, var(--accent), #b98c12);
+    color: #1a1a1a; font-weight: 700; font-size: 16px;
+    padding: 14px 28px; border: none; border-radius: 10px;
+    cursor: pointer; letter-spacing: 1px;
+    box-shadow: 0 4px 18px rgba(232,185,35,.35);
+    transition: transform .08s ease, box-shadow .2s ease;
+  }
+  .pickbtn:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(232,185,35,.5); }
+  .pickbtn:active { transform: translateY(0); }
+
+  .core-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  select {
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 14px;
+  }
+  .hint { font-size: 12px; color: var(--muted); }
+
+  .panel {
+    margin-top: 22px; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px 22px;
+  }
+  .panel h3 { margin: 0 0 10px; color: var(--accent); font-size: 16px; }
+  .panel ul { margin: 8px 0; padding-left: 20px; line-height: 1.8; font-size: 14px; color: #d2d2da; }
+  .panel code {
+    background: #000; color: var(--accent); padding: 1px 6px; border-radius: 4px;
+    font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px;
+  }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 680px) { .grid { grid-template-columns: 1fr; } }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  th { color: var(--accent); }
+  td:first-child { color: var(--muted); white-space: nowrap; }
+
+  footer { text-align: center; color: var(--muted); font-size: 12px; padding: 10px 16px 40px; line-height: 1.7; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>拳皇 97 · KOF '97</h1>
+  <p>The King of Fighters '97 — 浏览器街机模拟 · 即开即玩</p>
+</header>
+
+<div class="wrap">
+  <div class="stage">
+    <div class="loader" id="loader">
+      <h2>选择你的 ROM 开始游戏</h2>
+      <p>
+        出于版权原因，本页面不内置游戏 ROM。请选择你自己合法拥有的
+        <code>kof97.zip</code>（街机 ROM）即可在浏览器内直接游玩。
+        Neo·Geo ROM 通常还需要 <code>neogeo.zip</code> BIOS，可与游戏 ROM 一起打包选择。
+      </p>
+      <div class="core-row">
+        <label class="hint" for="core">模拟核心：</label>
+        <select id="core">
+          <option value="arcade" selected>arcade (FinalBurn Neo · 推荐)</option>
+          <option value="fbneo">fbneo (FinalBurn Neo)</option>
+          <option value="mame2003">mame2003</option>
+          <option value="mame2003_plus">mame2003_plus</option>
+        </select>
+      </div>
+      <button class="pickbtn" id="pick">📂 选择 ROM 文件并开始</button>
+      <input type="file" id="file" accept=".zip,.neo,.fba,.7z" style="display:none">
+      <p class="hint">支持 .zip / .neo / .fba — 文件不会上传，完全在本地浏览器运行。</p>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h3>🎮 默认按键（玩家 1）</h3>
+      <table>
+        <tr><th>功能</th><th>键盘</th></tr>
+        <tr><td>方向</td><td>↑ ↓ ← →</td></tr>
+        <tr><td>轻拳 (A)</td><td>Z</td></tr>
+        <tr><td>轻脚 (B)</td><td>X</td></tr>
+        <tr><td>重拳 (C)</td><td>A</td></tr>
+        <tr><td>重脚 (D)</td><td>S</td></tr>
+        <tr><td>投币 (Coin)</td><td>Shift</td></tr>
+        <tr><td>开始 (Start)</td><td>Enter</td></tr>
+        <tr><td>菜单 / 设置</td><td>右下角 ⚙ 按钮</td></tr>
+      </table>
+      <p class="hint">按键可在游戏内的设置菜单中自由重新映射，并支持手柄。</p>
+    </div>
+    <div class="panel">
+      <h3>📖 使用说明</h3>
+      <ul>
+        <li>把 <code>kof97.zip</code> 和 <code>neogeo.zip</code> 放在一起压缩成一个 zip，或分别准备好。</li>
+        <li>点击「选择 ROM 文件并开始」，选中 ROM。</li>
+        <li>先按 <b>Shift</b> 投币，再按 <b>Enter</b> 开始。</li>
+        <li>如提示缺少 BIOS，请确认包含 <code>neogeo.zip</code>。</li>
+        <li>移动端会自动显示虚拟摇杆与按钮。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>⚖️ 关于版权</h3>
+    <p style="margin:0;color:#d2d2da;line-height:1.7;font-size:14px;">
+      《拳皇97 / The King of Fighters '97》版权归 SNK 所有。本页面仅提供一个开源的浏览器模拟器前端
+      （基于 <a href="https://emulatorjs.org/" target="_blank" rel="noopener">EmulatorJS</a>），<b>不包含、不分发任何游戏 ROM</b>。
+      请仅使用你依法拥有的游戏副本。
+    </p>
+  </div>
+</div>
+
+<footer>
+  Powered by EmulatorJS · 纯前端运行，ROM 不离开你的设备<br>
+  本页面为模拟器前端，游戏内容版权归原权利人所有。
+</footer>
+
+<script>
+(function () {
+  var fileInput = document.getElementById('file');
+  var pickBtn   = document.getElementById('pick');
+  var coreSel   = document.getElementById('core');
+  var loader    = document.getElementById('loader');
+
+  pickBtn.addEventListener('click', function () { fileInput.click(); });
+
+  fileInput.addEventListener('change', function () {
+    var f = fileInput.files && fileInput.files[0];
+    if (!f) return;
+    var url = URL.createObjectURL(f);
+    startEmulator(url, f.name, coreSel.value);
+  });
+
+  function startEmulator(romUrl, romName, core) {
+    // 移除选择界面，挂载模拟器容器
+    loader.parentNode.innerHTML = '<div id="game"></div>';
+
+    window.EJS_player    = '#game';
+    window.EJS_core      = core;
+    window.EJS_gameUrl   = romUrl;
+    window.EJS_gameName  = romName.replace(/\.[^.]+$/, '');
+    window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+    window.EJS_startOnLoaded = true;
+    window.EJS_color     = '#e8b923';
+    window.EJS_backgroundColor = '#000000';
+    window.EJS_language  = 'zh-CN';
+
+    var s = document.createElement('script');
+    s.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+    document.body.appendChild(s);
+  }
+})();
+</script>
+</body>
+</html>
